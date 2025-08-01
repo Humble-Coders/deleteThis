@@ -1,21 +1,15 @@
-//
-//  ContentView.swift
-//  OurMemories
-//
-//  Main screen with Firebase integration and enhanced UI
-//
-
 import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var firebaseManager: RealFirebaseManager
     @State private var showingAddMemory = false
     @State private var showingSettings = false
-    
+    @State private var showingTodaySchedule = false
+
     var body: some View {
         NavigationView {
             ZStack {
-                // Beautiful gradient background
+                // Gradient background
                 LinearGradient(
                     colors: [
                         Color.pink.opacity(0.1),
@@ -26,23 +20,23 @@ struct ContentView: View {
                     endPoint: .bottomTrailing
                 )
                 .ignoresSafeArea()
-                
+
                 VStack(spacing: 0) {
-                    // Custom header with settings
+                    // Header
                     HStack {
                         VStack(alignment: .leading) {
                             Text("Our Love Story")
                                 .font(.largeTitle)
                                 .fontWeight(.bold)
                                 .foregroundColor(.primary)
-                            
+
                             Text("Forever and always 💕")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                         }
-                        
+
                         Spacer()
-                        
+
                         HStack(spacing: 12) {
                             // Settings button
                             Button(action: {
@@ -52,13 +46,13 @@ struct ContentView: View {
                                     Circle()
                                         .fill(Color.gray.opacity(0.2))
                                         .frame(width: 44, height: 44)
-                                    
+
                                     Image(systemName: "gearshape.fill")
                                         .font(.title3)
                                         .foregroundColor(.gray)
                                 }
                             }
-                            
+
                             // Add memory button
                             Button(action: {
                                 showingAddMemory = true
@@ -74,7 +68,7 @@ struct ContentView: View {
                                         )
                                         .frame(width: 50, height: 50)
                                         .shadow(color: .pink.opacity(0.3), radius: 5, x: 0, y: 2)
-                                    
+
                                     Image(systemName: "plus")
                                         .font(.title2)
                                         .fontWeight(.bold)
@@ -85,7 +79,7 @@ struct ContentView: View {
                     }
                     .padding(.horizontal)
                     .padding(.top, 10)
-                    
+
                     // Loading indicator
                     if firebaseManager.isLoading {
                         HStack {
@@ -97,7 +91,7 @@ struct ContentView: View {
                         }
                         .padding()
                     }
-                    
+
                     // Error message
                     if !firebaseManager.errorMessage.isEmpty {
                         HStack {
@@ -106,9 +100,9 @@ struct ContentView: View {
                             Text(firebaseManager.errorMessage)
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                            
+
                             Spacer()
-                            
+
                             Button("Dismiss") {
                                 firebaseManager.clearError()
                             }
@@ -121,28 +115,28 @@ struct ContentView: View {
                         .cornerRadius(8)
                         .padding(.horizontal)
                     }
-                    
+
                     // Memories feed
                     if firebaseManager.memories.isEmpty && !firebaseManager.isLoading {
                         // Empty state
                         VStack(spacing: 20) {
                             Spacer()
-                            
+
                             Image(systemName: "heart.circle")
                                 .font(.system(size: 80))
                                 .foregroundColor(.pink.opacity(0.5))
-                            
+
                             Text("No memories yet")
                                 .font(.title2)
                                 .fontWeight(.semibold)
                                 .foregroundColor(.secondary)
-                            
+
                             Text("Tap the + button to add your first beautiful memory together")
                                 .font(.body)
                                 .foregroundColor(.secondary)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 40)
-                            
+
                             Button(action: {
                                 showingAddMemory = true
                             }) {
@@ -162,21 +156,33 @@ struct ContentView: View {
                                 )
                                 .cornerRadius(25)
                             }
-                            
+
                             Spacer()
                         }
                     } else {
                         ScrollView {
-                            LazyVStack(spacing: 16) {
-                                ForEach(firebaseManager.memories) { memory in
-                                    NavigationLink(destination: MemoryDetailView(memory: memory)) {
-                                        MemoryCard(memory: memory)
+                            VStack(spacing: 0) {
+                                LazyVStack(spacing: 16, pinnedViews: []) {
+                                    // FreeTimeCard inside scroll feed
+                                    FreeTimeCard {
+                                        showingTodaySchedule = true
+                                        HapticFeedback.shared.light()
                                     }
-                                    .buttonStyle(PlainButtonStyle())
+                                    .padding(.horizontal)
+                                    .padding(.top, 12)
+                                    .zIndex(1) // Ensure it doesn't overlap anything
+
+                                    // All memory cards
+                                    ForEach(firebaseManager.memories) { memory in
+                                        NavigationLink(destination: MemoryDetailView(memory: memory)) {
+                                            MemoryCard(memory: memory)
+                                                .contentShape(Rectangle()) // Ensure tap area matches visible card
+                                        }
+                                        .buttonStyle(PlainButtonStyle())
+                                    }
                                 }
+                                .padding(.bottom, 100)
                             }
-                            .padding(.top, 20)
-                            .padding(.bottom, 100)
                         }
                         .refreshable {
                             firebaseManager.fetchMemories()
@@ -189,122 +195,8 @@ struct ContentView: View {
         .sheet(isPresented: $showingAddMemory) {
             AddMemoryView()
         }
-        .sheet(isPresented: $showingSettings) {
-            SettingsView()
+        .sheet(isPresented: $showingTodaySchedule) {
+            TodayScheduleView()
         }
     }
-}
-
-// MARK: - Settings View
-struct SettingsView: View {
-    @Environment(\.presentationMode) var presentationMode
-    @EnvironmentObject var firebaseManager: RealFirebaseManager
-    
-    var body: some View {
-        NavigationView {
-            ZStack {
-                LinearGradient(
-                    colors: [
-                        Color.pink.opacity(0.1),
-                        Color.purple.opacity(0.1),
-                        Color.white
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
-                
-                VStack(spacing: 24) {
-                    // Header
-                    VStack(spacing: 8) {
-                        Image(systemName: "heart.text.square.fill")
-                            .font(.system(size: 60))
-                            .foregroundColor(.pink)
-                        
-                        Text("Our Memories")
-                            .font(.largeTitle)
-                            .fontWeight(.bold)
-                        
-                        Text("Made with love for our anniversary")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.top, 40)
-                    
-                    // Stats
-                    VStack(spacing: 16) {
-                        HStack {
-                            VStack {
-                                Text("\(firebaseManager.memories.count)")
-                                    .font(.largeTitle)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.pink)
-                                
-                                Text("Memories")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            Spacer()
-                            
-                            VStack {
-                                Text("4")
-                                    .font(.largeTitle)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.purple)
-                                
-                                Text("Months")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            Spacer()
-                            
-                            VStack {
-                                Text("∞")
-                                    .font(.largeTitle)
-                                    .fontWeight(.bold)
-                                    .foregroundColor(.pink)
-                                
-                                Text("Love")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        .padding()
-                        .background(Color(.systemBackground))
-                        .cornerRadius(16)
-                        .shadow(color: .black.opacity(0.1), radius: 5)
-                    }
-                    
-                    Spacer()
-                    
-                    // Close button
-                    Button("Done") {
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(
-                        LinearGradient(
-                            colors: [Color.pink, Color.purple],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .cornerRadius(16)
-                    .padding(.bottom, 40)
-                }
-                .padding(.horizontal)
-            }
-            .navigationBarHidden(true)
-        }
-    }
-}
-
-#Preview {
-    ContentView()
-        .environmentObject(RealFirebaseManager.shared)
 }
